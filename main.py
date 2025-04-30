@@ -1,0 +1,189 @@
+import random
+import time
+import os
+
+try:
+    from colorama import init, Fore, Back, Style
+    from pynput import keyboard
+    
+except Exception:
+    from libs.colorama import init, Fore, Back, Style
+    from libs.pynput import keyboard
+
+
+init()
+
+Back.GRAY = "\033[48;5;243m"  
+Back.LIGHT_GRAY = "\033[48;5;247m"
+Back.CORAL = "\033[48;5;203m"
+Back.PURPLE = "\033[48;5;93m"
+Back.ORANGE = "\033[48;5;208m"
+Back.CORAL = "\033[48;5;209m"
+
+colors = {
+    0: Back.GRAY,
+    2: Back.RED,
+    4: Back.GREEN,
+    8: Back.YELLOW,
+    16: Back.BLUE,
+        32: Back.MAGENTA,
+        64: Back.CYAN,
+        128: Back.LIGHT_GRAY,
+        256: Back.CORAL,
+        512: Back.PURPLE,
+        1024: Back.ORANGE,
+        2048: Back.CORAL
+    }
+
+SIZE = 4
+
+def clear():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def f(num):
+    if num == 0:
+        return "."
+    return str(num)
+
+def newGame():
+    global score
+    
+    board = [[0] * SIZE for i in range(SIZE)]
+    score = 0
+    addNewTile(board)
+    addNewTile(board)
+    return board
+
+def addNewTile(board):
+    empty = [(i, j) for i in range(SIZE) for j in range(SIZE) if board[i][j] == 0]
+    if not empty:
+        return
+    i, j = random.choice(empty)
+    board[i][j] = 4 if random.randint(0, 9) == 0 else 2
+
+def printBoard(board):
+    clear()
+    
+    print(f"{Style.BRIGHT}{'2048'.ljust(7 * SIZE - len(f'{score} pts'))}{score} pts")
+    print()
+    
+    for row in board:
+        
+        for num in row:
+            currColor = colors.get(num, Back.WHITE)
+            print(f"{currColor}{' ' * 7}{Style.RESET_ALL}", end = "")
+        print()
+        
+        for num in row:
+            currColor = colors.get(num, Back.WHITE)
+            print(f"{currColor}{f(num).center(7)}{Style.RESET_ALL}", end = "")
+        print()
+            
+        for num in row:
+            currColor = colors.get(num, Back.WHITE)
+            print(f"{currColor}{' ' * 7}{Style.RESET_ALL}", end = "")
+        print()
+    print()
+    print("        ←,↑,→,↓ or q")
+
+def leftSlide(row):
+    global score
+    
+    newRow = [i for i in row if i != 0]
+    for i in range(len(newRow) - 1):
+        if newRow[i] == newRow[i + 1]:
+            newRow[i] *= 2
+            score += newRow[i]
+            newRow[i + 1] = 0
+    newRow = [i for i in newRow if i != 0]
+    return newRow + [0] * (len(row) - len(newRow))
+
+def moveLeft(board):
+    moved = False
+    newBoard = []
+
+    for row in board:
+        newRow = leftSlide(row)
+        
+        if newRow != row:
+            moved = True
+            
+        newBoard.append(newRow)
+        
+    return newBoard, moved
+
+def moveRight(board):
+    reversedBoard = [list(reversed(row)) for row in board]
+    newBoard, moved = moveLeft(reversedBoard)
+    newBoard = [list(reversed(row)) for row in newBoard]
+    return newBoard, moved
+
+def transpose(board):
+    return [list(row) for row in zip(*board)]
+
+def moveUp(board):
+    transposed = transpose(board)
+    newBoard, moved = moveLeft(transposed)
+    newBoard = transpose(newBoard)
+    return newBoard, moved
+
+def moveDown(board):
+    transposed = transpose(board)
+    newBoard, moved = moveRight(transposed)
+    newBoard = transpose(newBoard)
+    return newBoard, moved
+
+def checkWin(board):
+    return any(2048 in row for row in board)
+
+def canMove(board):
+    for i in range(SIZE):
+        for j in range(SIZE):
+            if board[i][j] == 0:
+                return True
+            if i < SIZE-1 and board[i][j] == board[i+1][j]:
+                return True
+            if j < SIZE-1 and board[i][j] == board[i][j+1]:
+                return True
+    return False
+
+def main():
+    board = newGame()
+    
+    def on_press(key):
+        nonlocal board
+        
+        try:
+            if key == keyboard.Key.up:
+                board, moved = moveUp(board)
+            elif key == keyboard.Key.down:
+                board, moved = moveDown(board)
+            elif key == keyboard.Key.left:
+                board, moved = moveLeft(board)
+            elif key == keyboard.Key.right:
+                board, moved = moveRight(board)
+            elif key == keyboard.KeyCode.from_char('q'):
+
+                print(f"{Fore.YELLOW}{Style.BRIGHT}You left the game.")
+                return False
+            else:
+                return
+            
+            if moved:
+                addNewTile(board)
+                printBoard(board) 
+                if checkWin(board):
+                    print(f"{Fore.GREEN}{Style.BRIGHT}Winner winner chicken dinner!")
+                    return False
+                if not canMove(board):
+                    print(f"{Fore.RED}{Style.BRIGHT}GAME OVER")
+                    return False        
+        except AttributeError:
+            pass
+        
+    with keyboard.Listener(on_press=on_press) as listener:
+        printBoard(board)
+        listener.join()
+
+if __name__ == "__main__":
+    main()
