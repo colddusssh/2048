@@ -4,11 +4,9 @@ import os
 
 try:
     from colorama import init, Fore, Back, Style
-    from pynput import keyboard
     
 except Exception:
     from libs.colorama import init, Fore, Back, Style
-    from libs.pynput import keyboard
 
 
 init()
@@ -26,13 +24,13 @@ colors = {
     4: Back.GREEN,
     8: Back.YELLOW,
     16: Back.BLUE,
-        32: Back.MAGENTA,
-        64: Back.CYAN,
-        128: Back.LIGHT_GRAY,
-        256: Back.CORAL,
-        512: Back.PURPLE,
-        1024: Back.ORANGE,
-        2048: Back.CORAL
+    32: Back.MAGENTA,
+    64: Back.CYAN,
+    128: Back.LIGHT_GRAY,
+    256: Back.CORAL,
+    512: Back.PURPLE,
+    1024: Back.ORANGE,
+    2048: Back.CORAL
     }
 
 SIZE = 4
@@ -136,6 +134,48 @@ def moveDown(board):
 def checkWin(board):
     return any(2048 in row for row in board)
 
+def getKey():
+    if os.name == 'nt':  # Windows
+        import msvcrt
+        while True:
+            key = msvcrt.getch()
+            if key == b'q':
+                return 'q'
+            elif key == b'H':
+                return 'up'
+            elif key == b'P':
+                return 'down'
+            elif key == b'K':
+                return 'left'
+            elif key == b'M':
+                return 'right'
+    else:  # Linux/Mac
+        import sys
+        import tty
+        import termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+            if ch == '\x1b': 
+                ch = sys.stdin.read(1)
+                if ch == '[':
+                    ch = sys.stdin.read(1)
+                    if ch == 'A':
+                        return 'up'
+                    elif ch == 'B':
+                        return 'down'
+                    elif ch == 'C':
+                        return 'right'
+                    elif ch == 'D':
+                        return 'left'
+            elif ch == 'q':
+                return 'q'
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return None
+
 def canMove(board):
     for i in range(SIZE):
         for j in range(SIZE):
@@ -149,41 +189,34 @@ def canMove(board):
 
 def main():
     board = newGame()
+    printBoard(board)
     
-    def on_press(key):
-        nonlocal board
+    while True:
+        key = getKey()
         
-        try:
-            if key == keyboard.Key.up:
-                board, moved = moveUp(board)
-            elif key == keyboard.Key.down:
-                board, moved = moveDown(board)
-            elif key == keyboard.Key.left:
-                board, moved = moveLeft(board)
-            elif key == keyboard.Key.right:
-                board, moved = moveRight(board)
-            elif key == keyboard.KeyCode.from_char('q'):
-
-                print(f"{Fore.YELLOW}{Style.BRIGHT}You left the game.")
-                return False
-            else:
-                return
-            
-            if moved:
-                addNewTile(board)
-                printBoard(board) 
-                if checkWin(board):
-                    print(f"{Fore.GREEN}{Style.BRIGHT}Winner winner chicken dinner!")
-                    return False
-                if not canMove(board):
-                    print(f"{Fore.RED}{Style.BRIGHT}GAME OVER")
-                    return False        
-        except AttributeError:
-            pass
+        moved = False
         
-    with keyboard.Listener(on_press=on_press) as listener:
-        printBoard(board)
-        listener.join()
+        if key == 'up':
+            board, moved = moveUp(board)
+        elif key == 'down':
+            board, moved = moveDown(board)
+        elif key == 'left':
+            board, moved = moveLeft(board)
+        elif key == 'right':
+            board, moved = moveRight(board)
+        elif key == 'q':
+            print(f"{Fore.YELLOW}{Style.BRIGHT}You left the game.")
+            break
+        
+        if moved:
+            addNewTile(board)
+            printBoard(board)
+            if checkWin(board):
+                print(f"{Fore.GREEN}{Style.BRIGHT}Winner winner chicken dinner!")
+                break
+            if not canMove(board):
+                print(f"{Fore.RED}{Style.BRIGHT}GAME OVER")
+                break
 
 if __name__ == "__main__":
     main()
